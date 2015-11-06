@@ -12,6 +12,7 @@ vexMotor motor2;
 
 struct payload{
   byte command;
+  float number;
 };
 
 //Configurable Section
@@ -29,6 +30,8 @@ RF24 radio(9,10);
 //Commands
 static const byte REQUEST = 1;
 static const byte RECEIVED = 2;
+static const byte P_ANGLE = 3;
+
 NewPing sonar1(TRIGGER_PIN1, ECHO_PIN1, MAX_DISTANCE);
 NewPing sonar2(TRIGGER_PIN2, ECHO_PIN2, MAX_DISTANCE);
 unsigned int pingSpeed = 100;
@@ -47,6 +50,17 @@ void setup(){
   motor2.attach(6);
   motor1.write(0);
   motor2.write(0);
+}
+
+void printOnPC(const byte type, float number){
+  if(type == P_ANGLE)
+    Serial.println(number);
+//  uint16_t pc = 0x009f;  
+//  radio.stopListening();  
+//  radio.openWritingPipe(pc);
+//  struct payload myPayload = {type, number};
+//  radio.write(&myPayload, sizeof(payload));
+//  setupListening();
 }
 
 void setupListening(){
@@ -70,11 +84,17 @@ float scaleAndFloor(int speedNum){
     num = 0;
   return ((num*20)/255);
 }
-
+int clip(int speedNum, int limit){
+  if (speedNum < -limit)
+    return -limit;
+  if (speedNum > limit)
+    return limit;
+  return speedNum;
+}
 void writeToController(const byte message){
   radio.stopListening();  
   radio.openWritingPipe(other_node_address);
-  struct payload myPayload = {message};
+  struct payload myPayload = {message, 0};
   radio.write(&myPayload, sizeof(payload));
   setupListening();
 //  Serial.println("write to controller");
@@ -82,11 +102,11 @@ void writeToController(const byte message){
 
 void requestPing(){
   writeToController(REQUEST);
-  Serial.println("request");
+  printOnPC(REQUEST, 0);
 }
 
 void handleInstruction(struct payload * instruction){
-  Serial.println("Radio received");
+  printOnPC(RECEIVED, 0);
 }
 
 void loop(){
@@ -133,26 +153,23 @@ void loop(){
 }
 
 void pid(float dist1, float dist2){
-  Serial.print(dist1);
-  Serial.print(" ");
-  Serial.println(dist2);
-  float nDist = 0.5*(dist1 + dist2);
-//  float KP = 1.5;
-  float KD = 0; 
-  float KPTurn = 2;
+//  Serial.print(dist1);
+//  Serial.print(" ");
+//  Serial.println(dist2);
+  float nDist = 0.5*(dist1+dist2);
+  float KP = 1;
+  float KPTurn = 3;
   float KDTurn = 0;//.0350; 
   float angle = calcAngle(dist1, dist2);
-
-//  int forward = KP * nDist;
-  int turnSpeed = /*forward */ KPTurn * angle;// + KDTurn * (turn - lastTurn);
-//  motor1.write(0);
-//  motor2.write(0);
-  if(abs(turnSpeed) < 70){
-    motor1.write(turnSpeed);
-    motor2.write(-turnSpeed);
+  float forward = KP * nDist;
+  printOnPC(P_ANGLE, angle);
+  if(((int)angle != 0) && ((int)angle != 90)){
+//    printOnPC(P_ANGLE, angle);
+  
+    int turnSpeed = KPTurn * angle;// * forward;
+    motor1.write(clip(turnSpeed/* + forward*/, 80));
+    motor2.write(clip(turnSpeed/* - forward*/, 80));
   }
-  last1 = dist1;
-  last2 = dist2;
 }
 
 float microsToInches(int micro){
@@ -165,6 +182,6 @@ float calcAngle(float dist1, float dist2){
   double sqrtden = 2*sq(dist2) + 2*sq(dist1) - sq(a);
   double den = a*sqrt(sqrtden);
   double angle = acos(num/den);
-  return (90 - (int)(angle * 57.2958));
+  return (90 - (angle * 57.2958));
 }
 
