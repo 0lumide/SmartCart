@@ -1,3 +1,4 @@
+#include <NewPing.h>
 #include <EEPROM.h>
 #include <SPI.h>
 #include <string.h>
@@ -5,6 +6,7 @@
 #include "RF24.h"
 
 #define ultraPin 6
+#define stopButton 5
 #define ledPin 4
 #define MAX_DISTANCE 200
 
@@ -13,6 +15,7 @@ struct payload{
   float number;
 };
 
+NewPing sonar(ultraPin, ultraPin, MAX_DISTANCE);
 int led = 1;
 uint16_t other_node_address;
 uint16_t this_node_address;
@@ -21,6 +24,7 @@ RF24 radio(9,10);
 static const byte REQUEST = 1;
 static const byte RECEIVED = 2;
 static const byte P_ANGLE = 3;
+static const byte STOP = 4;
 
 
 void setup()
@@ -55,12 +59,13 @@ void handleMessage(struct payload * message){
 void sendPulse(){
   digitalWrite(ledPin, led);
   led = !led;
-  pinMode(ultraPin, OUTPUT);
-  digitalWrite(ultraPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(ultraPin, HIGH);
-  delayMicroseconds(5);
-  digitalWrite(ultraPin, LOW);
+//  pinMode(ultraPin, OUTPUT);
+//  digitalWrite(ultraPin, LOW);
+//  delayMicroseconds(2);
+//  digitalWrite(ultraPin, HIGH);
+//  delayMicroseconds(5);
+//  digitalWrite(ultraPin, LOW);
+  sonar.ping();
 }
 
 void sendMessage(struct payload command){
@@ -68,6 +73,13 @@ void sendMessage(struct payload command){
   radio.openWritingPipe(other_node_address);
   radio.write(&command, sizeof(payload));
   setupListening();
+}
+
+void stopRobot(){
+      struct payload command;
+      command.command = STOP;
+      command.number = 0;
+      sendMessage(command);
 }
 
 void loop(){
@@ -80,5 +92,7 @@ void loop(){
     handleMessage(current_payload);
     free(current_payload);
   }
+//  if(digitalRead(stopButton))
+//    stopRobot();
 }
 

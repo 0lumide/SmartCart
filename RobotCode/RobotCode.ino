@@ -27,10 +27,14 @@ struct payload{
 uint16_t other_node_address;
 uint16_t this_node_address;
 RF24 radio(9,10);
+int stopped = 0;
+
 //Commands
 static const byte REQUEST = 1;
 static const byte RECEIVED = 2;
 static const byte P_ANGLE = 3;
+static const byte STOP = 4;
+float lastAngle = -180;
 
 NewPing sonar1(TRIGGER_PIN1, ECHO_PIN1, MAX_DISTANCE);
 NewPing sonar2(TRIGGER_PIN2, ECHO_PIN2, MAX_DISTANCE);
@@ -53,8 +57,8 @@ void setup(){
 }
 
 void printOnPC(const byte type, float number){
-  if(type == P_ANGLE)
-    Serial.println(number);
+//  if(type == P_ANGLE)
+//    Serial.println(number);
 //  uint16_t pc = 0x009f;  
 //  radio.stopListening();  
 //  radio.openWritingPipe(pc);
@@ -107,6 +111,10 @@ void requestPing(){
 
 void handleInstruction(struct payload * instruction){
   printOnPC(RECEIVED, 0);
+//  if(instruction->command == STOP){
+//    stopRobot();
+//    stopped = 1;
+//  }
 }
 
 void loop(){
@@ -118,61 +126,79 @@ void loop(){
     handleInstruction(current_payload);
     free(current_payload);
   }
-  
-  if (millis() >= pingTimer) {
-    float dist1 = 0;
-    float dist2 = 0;
-    pingTimer += pingSpeed;
-    requestPing();
-    int p1 = sonar1.ping();
-//    if(p1 == 0){
-////      dist1 = last1;
-//    }else{
-//      float temp = microsToInches(p1); // Send ping, get ping time in microseconds (uS).
-//      if(abs(temp - last1) >  15)
-//        dist1 = last1;
-//      else
-//        dist1 = temp;
-//    }
-    dist1 = microsToInches(p1);
-    delay(50); //Witout this, it gives false values
-    requestPing();
-    int p2 = sonar2.ping();
-//    if(p2 == 0){
-//      dist2 = last2;
-//    }else{
-//      float temp = microsToInches(p2); // Send ping, get ping time in microseconds (uS).
-//      if(abs(temp - last2) >  15)
-//        dist2 = last2;
-//      else
-//        dist2 = temp;
-//    }
-    dist2 = microsToInches(p2);
-    pid(dist1, dist2);
+  if(!stopped){
+    if (millis() >= pingTimer) {
+      float dist1 = 0;
+      float dist2 = 0;
+      pingTimer += pingSpeed;
+      requestPing();
+      int p1 = sonar1.ping();
+  //    if(p1 == 0){
+  ////      dist1 = last1;
+  //    }else{
+  //      float temp = microsToInches(p1); // Send ping, get ping time in microseconds (uS).
+  //      if(abs(temp - last1) >  15)
+  //        dist1 = last1;
+  //      else
+  //        dist1 = temp;
+  //    }
+      dist1 = microsToInches(p1);
+      delay(50); //Witout this, it gives false values
+      requestPing();
+      int p2 = sonar2.ping();
+  //    if(p2 == 0){
+  //      dist2 = last2;
+  //    }else{
+  //      float temp = microsToInches(p2); // Send ping, get ping time in microseconds (uS).
+  //      if(abs(temp - last2) >  15)
+  //        dist2 = last2;
+  //      else
+  //        dist2 = temp;
+  //    }
+      dist2 = microsToInches(p2);
+//      if(dist1 != 0 && dist2 != 0)
+        pid(dist1, dist2);
+    }
   }
 }
 
 void pid(float dist1, float dist2){
-//  Serial.print(dist1);
-//  Serial.print(" ");
-//  Serial.println(dist2);
   float nDist = 0.5*(dist1+dist2);
-  float KP = 1;
-  float KPTurn = 3;
-  float KDTurn = 0;//.0350; 
+  Serial.print(dist1);
+  Serial.print(" ");
+  Serial.print(dist2);
+  Serial.print(" ");
+  Serial.println(nDist);
+  float KP = 1.3;
+  float KPTurn = 2.3;
+  float KDTurn = 0; 
   float angle = calcAngle(dist1, dist2);
   float forward = KP * nDist;
+  Serial.println(nDist);
   printOnPC(P_ANGLE, angle);
   if(((int)angle != 0) && ((int)angle != 90)){
 //    printOnPC(P_ANGLE, angle);
-  
-    int turnSpeed = KPTurn * angle;// * forward;
-    motor1.write(clip(turnSpeed/* + forward*/, 80));
-    motor2.write(clip(turnSpeed/* - forward*/, 80));
+    float KDTerm = 0;
+    if(lastAngle == -180)
+      KDTerm = KDTurn*(angle - lastAngle);
+    int turnSpeed = KPTurn * angle + KDTerm;// * forward;
+    if(((abs(angle) < 5)) && nDist > 18){
+      motor1.write(clip(forward, 80));
+      motor2.write(clip(-forward, 80));
+    }else if((abs(angle) > 10) && (nDist > 18)){
+      motor1.write(clip(turnSpeed, 80));
+      motor2.write(clip(turnSpeed, 80));
+    }else{
+      motor1.write(0);
+      motor2.write(0);
+    }
+    lastAngle = angle;
   }
 }
 
 float microsToInches(int micro){
+//  if(micro == 0)
+//    return 0;
   return 0.0138*micro + 6.4551;
 }
 
