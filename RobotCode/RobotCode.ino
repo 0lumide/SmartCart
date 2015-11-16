@@ -45,6 +45,7 @@ float last2 = 0;
 
 void setup(){
   this_node_address = (EEPROM.read(0) << 8) | EEPROM.read(1); // Radio address for this node
+  this_node_address = 0xdc10;
   other_node_address = 0x69ff;
   Serial.begin(57600);
   radio.begin();
@@ -110,7 +111,8 @@ void requestPing(){
 }
 
 void handleInstruction(struct payload * instruction){
-  printOnPC(RECEIVED, 0);
+//  printOnPC(RECEIVED, 0);
+  Serial.println("received");
 //  if(instruction->command == STOP){
 //    stopRobot();
 //    stopped = 1;
