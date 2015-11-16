@@ -5,9 +5,7 @@
 //#include "nRF24L01.h"
 #include "RF24.h"
 
-#define ultraPin 6
-#define stopButton 5
-#define ledPin 4
+#define ultraPin 7
 #define MAX_DISTANCE 200
 
 struct payload{
@@ -16,7 +14,6 @@ struct payload{
 };
 
 NewPing sonar(ultraPin, ultraPin, MAX_DISTANCE);
-int led = 1;
 uint16_t other_node_address;
 uint16_t this_node_address;
 RF24 radio(9,10);
@@ -29,14 +26,12 @@ static const byte STOP = 4;
 
 void setup()
 {
-  pinMode(ledPin, OUTPUT);
-  this_node_address = (EEPROM.read(0) << 8) | EEPROM.read(1); // Radio address for this node
+  this_node_address = 0x69ff;//(EEPROM.read(0) << 8) | EEPROM.read(1); // Radio address for this node
   other_node_address = 0xdc10;
   Serial.begin(57600);
   radio.begin();
   setupListening();
   Serial.println("Start");
-  pinMode(ultraPin, OUTPUT);
 }
 
 void setupListening(){
@@ -57,15 +52,8 @@ void handleMessage(struct payload * message){
 }
 
 void sendPulse(){
-  digitalWrite(ledPin, led);
-  led = !led;
-//  pinMode(ultraPin, OUTPUT);
-//  digitalWrite(ultraPin, LOW);
-//  delayMicroseconds(2);
-//  digitalWrite(ultraPin, HIGH);
-//  delayMicroseconds(5);
-//  digitalWrite(ultraPin, LOW);
   sonar.ping();
+  Serial.println("Ping!");
 }
 
 void sendMessage(struct payload command){
@@ -73,13 +61,6 @@ void sendMessage(struct payload command){
   radio.openWritingPipe(other_node_address);
   radio.write(&command, sizeof(payload));
   setupListening();
-}
-
-void stopRobot(){
-      struct payload command;
-      command.command = STOP;
-      command.number = 0;
-      sendMessage(command);
 }
 
 void loop(){
@@ -92,7 +73,5 @@ void loop(){
     handleMessage(current_payload);
     free(current_payload);
   }
-//  if(digitalRead(stopButton))
-//    stopRobot();
 }
 
