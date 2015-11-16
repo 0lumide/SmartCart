@@ -125,18 +125,21 @@ void pid(float dist1, float dist2){
   Serial.print(" ");
   Serial.println(nDist);
   float KP = 1.3;
-  float KPTurn = 2.3;
+  float KPTurn = 3;
   float angle = calcAngle(dist1, dist2);
   float forward = KP * nDist;
   Serial.println(nDist);
   int turnSpeed = KPTurn * angle;// + KDTerm;// * forward;
-  if(((abs(angle) < 5)) && nDist > 18){
+  if(((abs(angle) < 5)) && (nDist > 30)){
     motor1.write(clip(forward, 80));
     motor2.write(clip(-forward, 80));
-  }else if((abs(angle) > 10) && (nDist > 18)){
-    motor1.write(clip(turnSpeed, 80));
-    motor2.write(clip(turnSpeed, 80));
+  }else if((abs(angle) > 10) && (nDist > 30)){
+    motor1.write(clip(turnSpeed + 0.8*forward, 80));
+    motor2.write(clip(turnSpeed - 0.8*forward, 80));
+  }else if(nDist <= 30){
+    stopRobot();
   }else{
+  
 //    motor1.write(0);
 //    motor2.write(0);
   }
