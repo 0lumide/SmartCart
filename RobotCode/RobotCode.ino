@@ -113,7 +113,7 @@ void loop(){
     Serial.print(dist1);
     Serial.print(" ");
     Serial.println(dist2);
-//    pid(dist1, dist2);
+    pid(dist1, dist2);
   }
 }
 
@@ -137,8 +137,8 @@ void pid(float dist1, float dist2){
     motor1.write(clip(turnSpeed, 80));
     motor2.write(clip(turnSpeed, 80));
   }else{
-    motor1.write(0);
-    motor2.write(0);
+//    motor1.write(0);
+//    motor2.write(0);
   }
 }
 
