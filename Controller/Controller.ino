@@ -5,7 +5,7 @@
 //#include "nRF24L01.h"
 #include "RF24.h"
 
-#define ultraPin 7
+#define ultraPin A4
 #define MAX_DISTANCE 200
 
 struct payload{
