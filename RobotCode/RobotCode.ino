@@ -33,6 +33,7 @@ static const byte REQUEST = 1;
 static const byte RECEIVED = 2;
 static const byte P_ANGLE = 3;
 static const byte STOP = 4;
+float lastAngle = 0;
 
 NewPing sonar1(TRIGGER_PIN1, ECHO_PIN1, MAX_DISTANCE);
 NewPing sonar2(TRIGGER_PIN2, ECHO_PIN2, MAX_DISTANCE);
@@ -126,10 +127,11 @@ void pid(float dist1, float dist2){
   Serial.println(nDist);
   float KP = 1.3;
   float KPTurn = 3;
+  float KDTurn = 1.8;
   float angle = calcAngle(dist1, dist2);
   float forward = KP * nDist;
   Serial.println(nDist);
-  int turnSpeed = KPTurn * angle;// + KDTerm;// * forward;
+  int turnSpeed = KPTurn * angle + KDTurn * (lastAngle - angle);
   if(((abs(angle) < 5)) && (nDist > 30)){
     motor1.write(clip(forward, 80));
     motor2.write(clip(-forward, 80));
@@ -143,6 +145,7 @@ void pid(float dist1, float dist2){
 //    motor1.write(0);
 //    motor2.write(0);
   }
+  lastAngle = angle;
 }
 
 float microsToInches(int micro){
