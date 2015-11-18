@@ -22,19 +22,34 @@ struct payload{
 #define ECHO_PIN2     A5
 #define MAX_DISTANCE 200
 
+#define IR1  A0
+#define IR2  A1
+#define IR3  A2
+#define IR4  A3
+
+#define Encoder1PinA  1
+#define Encoder1PinB  2
+#define Encoder2PinA  4
+#define Encoder2PinB  3
+#define WHEEL_TICKS 50
 //End configurable section
 
 uint16_t other_node_address;
 uint16_t this_node_address;
 RF24 radio(9,10);
+volatile unsigned int Encoder1Pos = 0;
+volatile unsigned int Encoder2Pos = 0;
 
 //Commands
 static const byte REQUEST = 1;
 static const byte RECEIVED = 2;
 static const byte P_ANGLE = 3;
 static const byte STOP = 4;
-float lastAngle = 0;
 
+float lastAngle = 0;
+long detectTime;
+int dir = 0;
+int irval1, irval2, irval3, irval4;
 NewPing sonar1(TRIGGER_PIN1, ECHO_PIN1, MAX_DISTANCE);
 NewPing sonar2(TRIGGER_PIN2, ECHO_PIN2, MAX_DISTANCE);
 
@@ -50,7 +65,13 @@ void setup(){
   motor1.attach(5);
   motor2.attach(6);
   setupListening();
+  pinMode(IR1, INPUT);
+  pinMode(IR2, INPUT);
+  pinMode(IR3, INPUT);
+  pinMode(IR4, INPUT);
   stopRobot();
+//  attachInterrupt(digitalPinToInterrupt(Encoder1PinB), EncoderEvent1, HIGH);
+//  attachInterrupt(digitalPinToInterrupt(Encoder2PinB), EncoderEvent2, CHANGE);
 }
 
 void setupListening(){
@@ -79,16 +100,16 @@ void writeToController(const byte message){
   struct payload myPayload = {message, 0};
   radio.write(&myPayload, sizeof(payload));
   setupListening();
-  Serial.println("write to controller");
+//  Serial.println("write to controller");
 }
 
 void requestPing(){
   writeToController(REQUEST);
-  Serial.println("request");
+//  Serial.println("request");
 }
 
 void handleInstruction(struct payload * instruction){
-  Serial.println("received");
+//  Serial.println("received");
 }
 
 void loop(){
@@ -111,26 +132,60 @@ void loop(){
     requestPing();
     int p2 = sonar2.ping();
     dist2 = microsToInches(p2);
-    Serial.print(dist1);
-    Serial.print(" ");
-    Serial.println(dist2);
-    pid(dist1, dist2);
+
+    //Read IR sensors
+    irval1 = analogRead(IR1);
+    irval2 = analogRead(IR2);
+    irval3 = analogRead(IR3);
+    irval4 = analogRead(IR4);
+
+    Serial.print(irval1);
+    Serial.print("\t");
+    Serial.println(irval2);
+    if((irval1 <= 200)&&(irval2 <= 200)&&(irval3 <= 300)&&(irval4 <= 300)){
+      pid(dist1, dist2);
+    }else if(dist1 && dist2){
+      //IR1 only
+      if(((irval1 > 200)&&(irval3 > 300)) || ((irval1 > 200)&&(irval4 > 300)) || ((irval2 > 200)&&(irval3 > 300)) || ((irval2 > 200)&&(irval4 > 300))){
+        stopRobot();
+      }else if((irval3 > 300) || (irval4 > 300)){
+        motor1.write(60);
+        motor2.write(-60);
+      }else if((irval1 <= 200)&&(irval2 > 200)){
+//        Serial.println("IR1");
+        detectTime = millis();
+        dir = 1;
+        motor1.write(80);
+        motor2.write(-40);
+        delay(150);
+      //IR2 only  
+      }else if((irval1 > 200)&&(irval2 <= 200)){
+//        Serial.println("IR2");
+        detectTime = millis();
+        dir = -1;
+        motor1.write(40);
+        motor2.write(-80);
+        delay(150);      
+      }else{
+        stopRobot();
+      }
+    }
   }
 }
 
 void pid(float dist1, float dist2){
   float nDist = 0.5*(dist1+dist2);
-  Serial.print(dist1);
-  Serial.print(" ");
-  Serial.print(dist2);
-  Serial.print(" ");
-  Serial.println(nDist);
+//  Serial.print(dist1);
+//  Serial.print(" ");
+//  Serial.print(dist2);
+//  Serial.print(" ");
+//  Serial.println(nDist);
   float KP = 1.3;
   float KPTurn = 3;
   float KDTurn = 1.8;
   float angle = calcAngle(dist1, dist2);
   float forward = KP * nDist;
-  Serial.println(nDist);
+//  Serial.println(nDist);
   int turnSpeed = KPTurn * angle + KDTurn * (lastAngle - angle);
   if(((abs(angle) < 5)) && (nDist > 30)){
     motor1.write(clip(forward, 80));
@@ -140,8 +195,7 @@ void pid(float dist1, float dist2){
     motor2.write(clip(turnSpeed - 0.8*forward, 80));
   }else if(nDist <= 30){
     stopRobot();
-  }else{
-  
+  }else{  
 //    motor1.write(0);
 //    motor2.write(0);
   }
@@ -149,8 +203,8 @@ void pid(float dist1, float dist2){
 }
 
 float microsToInches(int micro){
-//  if(micro == 0)
-//    return 0;
+  if(micro == 0)
+    return 0;
   return 0.0138*micro + 6.4551;
 }
 
@@ -161,5 +215,39 @@ float calcAngle(float dist1, float dist2){
   double den = a*sqrt(sqrtden);
   double angle = acos(num/den);
   return (90 - (angle * 57.2958));
+}
+
+// Encoder event for the interrupt call
+void EncoderEvent1(){
+  // Read for data and bit changes
+  // This is gray-code logic
+  if (digitalRead(Encoder1PinA) == HIGH){
+    if (digitalRead(Encoder1PinB) == LOW)
+      Encoder1Pos++;
+    else
+      Encoder1Pos--;
+  }else{ 
+    if (digitalRead(Encoder1PinB) == LOW)
+      Encoder1Pos--;
+    else
+      Encoder1Pos++;
+  }
+}
+
+// Encoder event for the interrupt call
+void EncoderEvent2(){
+  // Read for data and bit changes
+  // This is gray-code logic
+  if (digitalRead(Encoder2PinA) == HIGH){
+    if (digitalRead(Encoder2PinB) == LOW)
+      Encoder2Pos++;
+    else
+      Encoder2Pos--;
+  }else{ 
+    if (digitalRead(Encoder2PinB) == LOW)
+      Encoder2Pos--;
+    else
+      Encoder2Pos++;
+  }
 }
 
