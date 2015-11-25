@@ -53,7 +53,7 @@ int irval1, irval2, irval3, irval4;
 NewPing sonar1(TRIGGER_PIN1, ECHO_PIN1, MAX_DISTANCE);
 NewPing sonar2(TRIGGER_PIN2, ECHO_PIN2, MAX_DISTANCE);
 
-unsigned int pingSpeed = 1000;
+unsigned int pingSpeed = 100;
 unsigned long pingTimer;
 
 void setup(){
@@ -125,24 +125,32 @@ void loop(){
     float dist1 = 0;
     float dist2 = 0;
     pingTimer += pingSpeed;
-//    requestPing();
+    requestPing();
     int p1 = sonar1.ping();
     dist1 = microsToInches(p1);
-    delay(500); //Witout this, it gives false values
-//    requestPing();
-//    int p2 = sonar2.ping();
-//    dist2 = microsToInches(p2);
-    pid(dist1, dist2);
+    delay(50); //Witout this, it gives false values
+    requestPing();
+    int p2 = sonar2.ping();
+    dist2 = microsToInches(p2);
+    
     //Read IR sensors
     irval1 = analogRead(IR1);
     irval2 = analogRead(IR2);
     irval3 = analogRead(IR3);
     irval4 = analogRead(IR4);
 
-//    Serial.print(irval1);
-//    Serial.print("\t");
-//    Serial.println(irval2);
-/*    if((irval1 <= 200)&&(irval2 <= 200)&&(irval3 <= 300)&&(irval4 <= 300)){
+    Serial.print(irval1);
+    Serial.print("\t");
+    Serial.print(irval2);
+    Serial.print("\t");
+    Serial.print(irval3);
+    Serial.print("\t");
+    Serial.print(irval4);
+    Serial.print("\t");
+    Serial.print(dist1);
+    Serial.print("\t");
+    Serial.println(dist2);
+    if((irval1 <= 200)&&(irval2 <= 200)&&(irval3 <= 300)&&(irval4 <= 300)){
       pid(dist1, dist2);
     }else if(dist1 && dist2){
       //IR1 only
@@ -156,37 +164,35 @@ void loop(){
         detectTime = millis();
         dir = 1;
         motor1.write(80);
-        motor2.write(-40);
-        delay(150);
+        motor2.write(40);
+//        delay(150);
       //IR2 only  
       }else if((irval1 > 200)&&(irval2 <= 200)){
 //        Serial.println("IR2");
         detectTime = millis();
         dir = -1;
-        motor1.write(40);
+        motor1.write(-40);
         motor2.write(-80);
-        delay(150);      
-      }else{
-        stopRobot();
+//        delay(150);      
       }
-    }*/
+    }
   }
 }
 
 void pid(float dist1, float dist2){
   float nDist = 0.5*(dist1+dist2);
-  Serial.print(dist1);
-  Serial.print("\t");
-  Serial.print(dist2);
-  Serial.print("\t");
-  Serial.println(nDist);
+//  Serial.print(dist1);
+//  Serial.print("\t");
+//  Serial.print(dist2);
+//  Serial.print("\t");
+//  Serial.println(nDist);
   float KP = 1.3;
   float KPTurn = 3;
   float KDTurn = 1.8;
   float angle = calcAngle(dist1, dist2);
   float forward = KP * nDist;
 //  Serial.println(nDist);
-  int turnSpeed = KPTurn * angle + KDTurn * (lastAngle - angle);
+  int turnSpeed = KPTurn * angle - KDTurn * (lastAngle - angle);
   if(((abs(angle) < 5)) && (nDist > 30)){
     motor1.write(clip(forward, 80));
     motor2.write(clip(-forward, 80));
