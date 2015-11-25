@@ -20,7 +20,7 @@ struct payload{
 #define ECHO_PIN1     8
 #define TRIGGER_PIN2  A4
 #define ECHO_PIN2     A5
-#define MAX_DISTANCE 200
+#define MAX_DISTANCE 100
 
 #define IR1  A0
 #define IR2  A1
@@ -53,7 +53,7 @@ int irval1, irval2, irval3, irval4;
 NewPing sonar1(TRIGGER_PIN1, ECHO_PIN1, MAX_DISTANCE);
 NewPing sonar2(TRIGGER_PIN2, ECHO_PIN2, MAX_DISTANCE);
 
-unsigned int pingSpeed = 100;
+unsigned int pingSpeed = 1000;
 unsigned long pingTimer;
 
 void setup(){
@@ -125,24 +125,24 @@ void loop(){
     float dist1 = 0;
     float dist2 = 0;
     pingTimer += pingSpeed;
-    requestPing();
+//    requestPing();
     int p1 = sonar1.ping();
     dist1 = microsToInches(p1);
-    delay(50); //Witout this, it gives false values
-    requestPing();
-    int p2 = sonar2.ping();
-    dist2 = microsToInches(p2);
-
+    delay(500); //Witout this, it gives false values
+//    requestPing();
+//    int p2 = sonar2.ping();
+//    dist2 = microsToInches(p2);
+    pid(dist1, dist2);
     //Read IR sensors
     irval1 = analogRead(IR1);
     irval2 = analogRead(IR2);
     irval3 = analogRead(IR3);
     irval4 = analogRead(IR4);
 
-    Serial.print(irval1);
-    Serial.print("\t");
-    Serial.println(irval2);
-    if((irval1 <= 200)&&(irval2 <= 200)&&(irval3 <= 300)&&(irval4 <= 300)){
+//    Serial.print(irval1);
+//    Serial.print("\t");
+//    Serial.println(irval2);
+/*    if((irval1 <= 200)&&(irval2 <= 200)&&(irval3 <= 300)&&(irval4 <= 300)){
       pid(dist1, dist2);
     }else if(dist1 && dist2){
       //IR1 only
@@ -169,17 +169,17 @@ void loop(){
       }else{
         stopRobot();
       }
-    }
+    }*/
   }
 }
 
 void pid(float dist1, float dist2){
   float nDist = 0.5*(dist1+dist2);
-//  Serial.print(dist1);
-//  Serial.print(" ");
-//  Serial.print(dist2);
-//  Serial.print(" ");
-//  Serial.println(nDist);
+  Serial.print(dist1);
+  Serial.print("\t");
+  Serial.print(dist2);
+  Serial.print("\t");
+  Serial.println(nDist);
   float KP = 1.3;
   float KPTurn = 3;
   float KDTurn = 1.8;
