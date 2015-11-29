@@ -22,6 +22,7 @@ static const byte REQUEST = 1;
 static const byte RECEIVED = 2;
 static const byte P_ANGLE = 3;
 static const byte STOP = 4;
+static const byte START = 5;
 
 
 void setup()
@@ -31,6 +32,10 @@ void setup()
   Serial.begin(57600);
   radio.begin();
   setupListening();
+  struct payload command;
+  command.command = START;
+  command.number = 0;
+  sendMessage(command);
   Serial.println("Start");
 }
 
