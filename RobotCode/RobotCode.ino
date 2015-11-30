@@ -53,13 +53,13 @@ int stopped = 0;
 
 IR ir1(IR1, 200, 160);
 IR ir2(IR2, 200, 160);
-IR ir3(IR3, 300, 20);
-IR ir4(IR4, 300, 20);
+IR ir3(IR3, 220, 20);
+IR ir4(IR4, 220, 20);
 
 NewPing sonar1(TRIGGER_PIN1, ECHO_PIN1, MAX_DISTANCE);
 NewPing sonar2(TRIGGER_PIN2, ECHO_PIN2, MAX_DISTANCE);
 
-unsigned int pingSpeed = 100;
+unsigned int pingSpeed = 150;
 unsigned long pingTimer;
 unsigned long lastValid;
 
@@ -74,8 +74,6 @@ void setup(){
   motor2.attach(6);
   setupListening();
   stopRobot();
-//  attachInterrupt(digitalPinToInterrupt(Encoder1PinB), EncoderEvent1, HIGH);
-//  attachInterrupt(digitalPinToInterrupt(Encoder2PinB), EncoderEvent2, CHANGE);
 }
 
 void setupListening(){
@@ -90,10 +88,12 @@ void stopRobot(){
 }
 
 void timeout(int dist1, int dist2){
-  if(dist1 && dist2)
+  if(dist1 && dist2){
     lastValid = millis();
-  else if((millis() - lastValid) > 30000){
+    stopped = 0;
+  }else if((millis() - lastValid) > 5000){
     stopped = 1;
+    Serial.println("Stopped");
   }
 }
 
@@ -147,35 +147,39 @@ void loop(){
   if(radio.available()){
     handleInstruction();
   }
-  if ((millis() >= pingTimer) && !stopped) {
+  if (millis() >= pingTimer) {
     float dist1 = 0;
     float dist2 = 0;
     pingTimer += pingSpeed;
     requestPing();
     int p1 = sonar1.ping();
     dist1 = microsToInches(p1);
-    delay(50); //Witout this, it gives false values
+    delay(0.5*pingSpeed); //Witout this, it gives false values
     requestPing();
     int p2 = sonar2.ping();
     dist2 = microsToInches(p2);
 
+    Serial.print(dist1);
+    Serial.print("\t");
+    Serial.println(dist2);
     //checks if the robot should timeout
-    timeout(dist1, dist2);
-    
-    if(coastIsClear()){
-      pid(dist1, dist2);
-    }else if(dist1 && dist2){
-      if(robotIsStuck()){
-        stopRobot();
-      }else if(ir3.isBlocked() || ir4.isBlocked()){
-        motor1.write(60);
-        motor2.write(-60);
-      }else if(ir1.isBlocked()&&!ir2.isBlocked()){
-        motor1.write(-80);
-        motor2.write(-40);
-      }else if(!ir1.isBlocked()&&ir2.isBlocked()){
-        motor1.write(40);
-        motor2.write(80);
+    if(!stopped){ 
+      timeout(dist1, dist2);
+      if(coastIsClear()){
+        pid(dist1, dist2);
+      }else if(dist1 && dist2){
+        if(robotIsStuck()){
+          stopRobot();
+        }else if(ir3.isBlocked() || ir4.isBlocked()){
+          motor1.write(60);
+          motor2.write(-60);
+        }else if(ir1.isBlocked()&&!ir2.isBlocked()){
+          motor1.write(-40);
+          motor2.write(-80);
+        }else if(!ir1.isBlocked()&&ir2.isBlocked()){
+          motor1.write(80);
+          motor2.write(40);
+        }
       }
     }
   }
@@ -185,17 +189,18 @@ void pid(float dist1, float dist2){
   float nDist = 0.5*(dist1+dist2);
   float KP = 1.3;
   float KPTurn = 3;
-  float KDTurn = 1.8;
+  float KDTurn = 2.1;
+  float DIST_LIMIT = 45;
   float angle = calcAngle(dist1, dist2);
   float forward = KP * nDist;
   int turnSpeed = KPTurn * angle - KDTurn * (lastAngle - angle);
-  if(((abs(angle) < 5)) && (nDist > 30)){
+  if(((abs(angle) < 5)) && (nDist > DIST_LIMIT)){
     motor1.write(clip(forward, 80));
     motor2.write(clip(-forward, 80));
-  }else if((abs(angle) > 10) && (nDist > 30)){
+  }else if((abs(angle) > 10) && (nDist > DIST_LIMIT)){
     motor1.write(clip(turnSpeed + 0.8*forward, 80));
     motor2.write(clip(turnSpeed - 0.8*forward, 80));
-  }else if(nDist <= 30){
+  }else if(nDist <= DIST_LIMIT){
     stopRobot();
   }
   lastAngle = angle;
@@ -215,38 +220,3 @@ float calcAngle(float dist1, float dist2){
   double angle = acos(num/den);
   return (90 - (angle * 57.2958));
 }
-
-// Encoder event for the interrupt call
-void EncoderEvent1(){
-  // Read for data and bit changes
-  // This is gray-code logic
-  if (digitalRead(Encoder1PinA) == HIGH){
-    if (digitalRead(Encoder1PinB) == LOW)
-      Encoder1Pos++;
-    else
-      Encoder1Pos--;
-  }else{ 
-    if (digitalRead(Encoder1PinB) == LOW)
-      Encoder1Pos--;
-    else
-      Encoder1Pos++;
-  }
-}
-
-// Encoder event for the interrupt call
-void EncoderEvent2(){
-  // Read for data and bit changes
-  // This is gray-code logic
-  if (digitalRead(Encoder2PinA) == HIGH){
-    if (digitalRead(Encoder2PinB) == LOW)
-      Encoder2Pos++;
-    else
-      Encoder2Pos--;
-  }else{ 
-    if (digitalRead(Encoder2PinB) == LOW)
-      Encoder2Pos--;
-    else
-      Encoder2Pos++;
-  }
-}
-
