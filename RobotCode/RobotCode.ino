@@ -90,10 +90,10 @@ void stopRobot(){
 }
 
 void timeout(int dist1, int dist2){
-  if(dist1 || dist2)
+  if(dist1 && dist2)
     lastValid = millis();
   else if((millis() - lastValid) > 30000){
-//    stopped = 1;
+    stopped = 1;
   }
 }
 
@@ -137,6 +137,7 @@ void handleInstruction(){
     radio.read( current_payload, sizeof(struct payload) );
     switch(current_payload->command){
       case START: stopped = 0;
+        timeout(1, 1);
     }
     free(current_payload);
 }
